@@ -4,7 +4,6 @@ use regex::Regex;
 
 #[derive(Debug)]
 struct Card {
-    id: u32,
     winners: HashSet<u32>,
     candidates: HashSet<u32>
 }
@@ -13,10 +12,14 @@ impl Card {
     fn value(&self) -> u32 {
         let intersection = self.winners.intersection(&self.candidates).collect::<Vec<_>>().len() as u32;
         if intersection > 0 {
-            2^(intersection-1)
+            (2 as u32).pow(intersection-1)
         } else {
             0
         }
+    }
+
+    fn inter(&self) -> usize {
+        self.winners.intersection(&self.candidates).collect::<Vec<_>>().len()
     }
 
     // fn illegal(&self) -> bool {
@@ -46,26 +49,32 @@ fn main() {
     let data = fs::read_to_string(Path::new("src/input.txt"))
         .expect("Should have been able to read the file");
 
-    let re = Regex::new(r"Card\s+(\d+): ([\d\s]+)|([\d\s]+)").unwrap();
+    let re = Regex::new(r"Card\s+(\d+): ([\d\s]+)\|([\d\s]+)").unwrap();
     
     let cards = data.split("\n").map(|c| {
         let all = re.captures(c).unwrap();
-        let set = Regex::new(r"(\d+)").unwrap();
-        let winners = set.captures(all.get(1).unwrap().as_str()).unwrap().iter().map(|o| o.unwrap().as_str().parse::<u32>().unwrap()).collect::<HashSet<_>>();
-        let candidates = set.captures(all.get(2).unwrap().as_str()).unwrap().iter().map(|o| o.unwrap().as_str().parse::<u32>().unwrap()).collect::<HashSet<_>>();
-        println!("{:?}", all);
-        Card{id: all.get(0).unwrap().as_str().parse::<u32>().unwrap(), winners: winners, candidates: candidates}
+        // println!("{:?}", all);
+        // let id = all.get(0).unwrap();
+        let set = Regex::new(r"\d+").unwrap();
+        // let blah = set.captures_iter(all.get(2).unwrap().as_str()).map(|o| o.get(0).unwrap().as_str().parse::<u32>().unwrap()).collect::<HashSet<_>>();
+        let winners = set.captures_iter(all.get(2).unwrap().as_str()).map(|o| o.get(0).unwrap().as_str().parse::<u32>().unwrap()).collect::<HashSet<_>>();
+        let candidates = set.captures_iter(all.get(3).unwrap().as_str()).map(|o| o.get(0).unwrap().as_str().parse::<u32>().unwrap()).collect::<HashSet<_>>();
+        Card{winners, candidates}
     }).collect::<Vec<_>>();
 
-    // let games = data.split("\n").map(|g| {
-    //     let game = g.split(": ").collect::<Vec<_>>();
-    //     let id = game[0].split(" ").collect::<Vec<_>>()[1].parse::<u32>().unwrap();
-    //     let rounds = game[1].split("; ").collect::<Vec<_>>();
-    //     return Game{game: id, rounds: rounds.iter().map(|r| parse_round(r)).collect()};
-    // }).collect::<Vec<_>>();
-
     let part1 = cards.iter().map(|g| g.value()).reduce(|a,b|a+b).unwrap();
-    let part2 = 0;
+
+    let mut count = cards.iter().map(|_| 1).collect::<Vec<_>>();
+
+    for (i, card) in cards.iter().enumerate() {
+        let wins = card.inter();
+        for j in 1..(wins+1) as usize {
+            if i+j >= cards.len() {break;}
+            count[i+j] += count[i]
+        }
+    }
+
+    let part2 = count.into_iter().reduce(|a,b| b+a).unwrap();
 
     println!("Part 1: {},\nPart 2: {}", part1, part2);
 }
